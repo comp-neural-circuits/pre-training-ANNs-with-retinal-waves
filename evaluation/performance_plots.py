@@ -10,7 +10,14 @@ from scipy import stats
 import itertools
 
 
-def read_measurements(current_model_dir, parent_dir, measurement, show_epoch_zero_vali, dataset, print_epoch_zero_vali=False, summarize=True):
+def read_measurements(current_model_dir,
+                      parent_dir,
+                      measurement,
+                      show_epoch_zero_vali,
+                      dataset,
+                      print_epoch_zero_vali=False,
+                      summarize=True
+                      ):
     mse_train, mse_vali = {}, {}
 
     # Iterate through all 5 directories (replicates) in the model directory and for each read the loss.txt file
@@ -40,44 +47,60 @@ def read_measurements(current_model_dir, parent_dir, measurement, show_epoch_zer
 
     mean_mse_train = [statistics.mean(mse_train[epoch]) for epoch in mse_train.keys()]
     mean_mse_vali = [statistics.mean(mse_vali[epoch]) for epoch in mse_vali.keys()]
-    sem_mse_train = [scistats.sem(mse_train[epoch]) for epoch in mse_train.keys()]
-    sem_mse_vali = [scistats.sem(mse_vali[epoch]) for epoch in mse_vali.keys()]
+    sd_mse_train = [scistats.tstd(mse_train[epoch]) for epoch in mse_train.keys()]
+    sd_mse_vali = [scistats.tstd(mse_vali[epoch]) for epoch in mse_vali.keys()]
 
     if print_epoch_zero_vali:
-        print(f'{current_model_dir} - Epoch 0: Mean MSE: {mean_mse_vali[0]}, SEM: {sem_mse_vali[0]}')
+        print(f'{current_model_dir} - Epoch 0: Mean MSE: {mean_mse_vali[0]}, SD: {sd_mse_vali[0]}')
 
     if not show_epoch_zero_vali:
         mean_mse_vali = mean_mse_vali[1:]
-        sem_mse_vali = sem_mse_vali[1:]
+        sd_mse_vali = sd_mse_vali[1:]
         if len(mean_mse_vali) != len(mean_mse_train):
             raise ValueError('Validation and training data have different lengths')
 
     if dataset == 'train':
         mean_mse = mean_mse_train
-        sem_mse = sem_mse_train
+        sd_mse = sd_mse_train
     elif dataset == 'validation':
         mean_mse = mean_mse_vali
-        sem_mse = sem_mse_vali
+        sd_mse = sd_mse_vali
 
-    return mean_mse, sem_mse
+    return mean_mse, sd_mse
 
 
 # parent_directory is the directory where all Output directories are located
 # Each model_dir is expected to contain 5 folders, each with a loss.txt file
 # skip_epoch expects a tupe such as ("Pretrain_ONE_EPOCH", 2) -> in this case the first 2 epochs are skipped for the specified model
-def plot_mse_with_break(parent_dir, model_dirs, model_names, model_designs, save_path, cell_type, measurement='loss',
-                        dataset='train', ylim='auto', show_epoch_zero_vali=False, figsize=(7, 4), start_break=20,
-                        end_break=35, width_ratios=[1.4, 1], skip_epoch=False, print_epoch_zero=False, print_epoch_one=False, xlim_max=45):
+def plot_mse_with_break(parent_dir,
+                        model_dirs,
+                        model_names,
+                        model_designs,
+                        save_path,
+                        cell_type,
+                        measurement='loss',
+                        dataset='train',
+                        ylim='auto',
+                        show_epoch_zero_vali=False,
+                        figsize=(7, 4),
+                        start_break=20,
+                        end_break=35,
+                        width_ratios=[1.4, 1],
+                        skip_epoch=False,
+                        print_epoch_zero=False,
+                        print_epoch_one=False,
+                        xlim_max=45
+                        ):
     plt.rcParams['figure.figsize'] = figsize
     f, (ax, ax2) = plt.subplots(1, 2, sharey='all', facecolor='w', gridspec_kw={'width_ratios': width_ratios})
 
     for current_model_dir, label, design in zip(model_dirs, model_names, model_designs):
-        mean_mse, sem_mse = read_measurements(current_model_dir, parent_dir, measurement, show_epoch_zero_vali, dataset, print_epoch_zero)
+        mean_mse, sd_mse = read_measurements(current_model_dir, parent_dir, measurement, show_epoch_zero_vali, dataset, print_epoch_zero)
 
         cropped_mean_mse = mean_mse[:start_break]
         cropped_mean_mse.extend(mean_mse[end_break:])
-        cropped_sem_mse = sem_mse[:start_break]
-        cropped_sem_mse.extend(sem_mse[end_break:])
+        cropped_sd_mse = sd_mse[:start_break]
+        cropped_sd_mse.extend(sd_mse[end_break:])
 
         if show_epoch_zero_vali:
             start, end = 0, len(cropped_mean_mse)
@@ -91,18 +114,18 @@ def plot_mse_with_break(parent_dir, model_dirs, model_names, model_designs, save
                     end += skip_epochs
 
         if print_epoch_one:
-            print(f'{current_model_dir} - Epoch 1: Mean MSE: {cropped_mean_mse[0]}, SEM: {cropped_sem_mse[0]}')
+            print(f'{current_model_dir} - Epoch 1: Mean MSE: {cropped_mean_mse[0]}, SD: {cropped_sd_mse[0]}')
 
         ax.plot(range(start, end), cropped_mean_mse, label=label, **design)
         ax2.plot(range(start, end), cropped_mean_mse, label=label, **design)
 
         ax.fill_between(range(start, end),
-                        np.asarray(cropped_mean_mse) - np.asarray(cropped_sem_mse),
-                        np.asarray(cropped_mean_mse) + np.asarray(cropped_sem_mse), alpha=0.35,
+                        np.asarray(cropped_mean_mse) - np.asarray(cropped_sd_mse),
+                        np.asarray(cropped_mean_mse) + np.asarray(cropped_sd_mse), alpha=0.25,
                         facecolor=design['color'])
         ax2.fill_between(range(start, end),
-                         np.asarray(cropped_mean_mse) - np.asarray(cropped_sem_mse),
-                         np.asarray(cropped_mean_mse) + np.asarray(cropped_sem_mse), alpha=0.35,
+                         np.asarray(cropped_mean_mse) - np.asarray(cropped_sd_mse),
+                         np.asarray(cropped_mean_mse) + np.asarray(cropped_sd_mse), alpha=0.25,
                          facecolor=design['color'])
 
     ax.set_xlim(0, start_break)
@@ -142,33 +165,50 @@ def plot_mse_with_break(parent_dir, model_dirs, model_names, model_designs, save
     plt.show()
 
 
-def plot_mse_without_break(parent_dir, model_dirs, model_names, model_designs, nr_epochs, save_path, cell_type,
+def plot_mse_without_break(parent_dir,
+                           model_dirs,
+                           model_names,
+                           model_designs,
+                           nr_epochs,
+                           save_path,
+                           cell_type,
                            measurement='loss',
-                           dataset='train', ylim='auto', show_epoch_zero_vali=False, figsize=(5, 4), skip_epoch=False, show_legend=False):
+                           dataset='train',
+                           ylim='auto',
+                           show_epoch_zero_vali=False,
+                           figsize=(5, 4),
+                           skip_epoch=False,
+                           show_legend=False
+                           ):
     plt.rcParams['figure.figsize'] = figsize
     fig, ax = plt.subplots()
 
     for current_model_dir, label, design in zip(model_dirs, model_names, model_designs):
-        mean_mse, sem_mse = read_measurements(current_model_dir, parent_dir, measurement, show_epoch_zero_vali, dataset)
+        mean_mse, sd_mse = read_measurements(current_model_dir, parent_dir, measurement, show_epoch_zero_vali, dataset)
 
-        cropped_mean_mse, cropped_sem_mse = mean_mse[:nr_epochs], sem_mse[:nr_epochs]
+        cropped_mean_mse, cropped_sd_mse = mean_mse[:nr_epochs], sd_mse[:nr_epochs]
 
         if show_epoch_zero_vali:
             start, end = 0, len(cropped_mean_mse)
         else:
             start, end = 1, (len(cropped_mean_mse) + 1)
 
-        if skip_epoch is not False and skip_epoch[0] == label:
-            start += skip_epoch[1]
+        if skip_epoch is not False:
+            for skip_label, skip_epochs in skip_epoch:
+                if skip_label == label:
+                    start += skip_epochs
+                    #end += skip_epochs
+        #if skip_epoch is not False and skip_epoch[0] == label:
+         #   start += skip_epoch[1]
             # remove last element from cropped_mean_mse
-            cropped_mean_mse = cropped_mean_mse[:(-1 * skip_epoch[1])]
-            cropped_sem_mse = cropped_sem_mse[:(-1 * skip_epoch[1])]
+                    cropped_mean_mse = cropped_mean_mse[:(-1 * skip_epochs)]
+                    cropped_sd_mse = cropped_sd_mse[:(-1 * skip_epochs)]
 
-        ax.plot(range(start, end), cropped_mean_mse, label=label.replace(' ', '\n'), **design)
+        ax.plot(range(start, end), cropped_mean_mse, label=label, **design)
 
         ax.fill_between(range(start, end),
-                        np.asarray(cropped_mean_mse) - np.asarray(cropped_sem_mse),
-                        np.asarray(cropped_mean_mse) + np.asarray(cropped_sem_mse), alpha=0.35,
+                        np.asarray(cropped_mean_mse) - np.asarray(cropped_sd_mse),
+                        np.asarray(cropped_mean_mse) + np.asarray(cropped_sd_mse), alpha=0.25,
                         facecolor=design['color'])
 
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
