@@ -48,6 +48,6 @@ bpy.data.worlds["World"].node_tree.nodes["Background"].inputs[0].default_value =
 
 #TODO manually in blender:
 # 1. Under "Output Properties" on the right: set render settings: y=64, x=128, set frame range (e.g. 1 to 6000), set output directory
-# 2. create path (shift + A, path (maybe under "curve"), set size and position); then tab (go into object mode); click on first node; shift S; Cursor to selected; (if necessary, go into object mode by clicking tab again) Select camera; shift S; Selection to cursor; select camera and path; cmd + P; follow path
+# 2. create path (shift + A, path (maybe under "curve"), set size (radius 125m) and location(x=250m, z=0.5m)); then tab (go into object mode); click on first node; shift S; Cursor to selected; (if necessary, go into object mode by clicking tab again) Select camera; shift S; Selection to cursor; select camera and path; cmd + P; follow path
 # 3. adjust speed of camera: click on path, then object data properties on the right, then path animation and change number of frames (e.g. 6000)
 # 4. set light as child of camera (on the right, under "Object Constraint Properties")
