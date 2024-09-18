@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from model._model_parts import Seq2Latent, Latent2NextFrame
+from _model_parts import Seq2Latent, Latent2NextFrame
 import copy
 
 

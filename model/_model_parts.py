@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from model._conv_recurrent_cells import Conv2dRNNCell, Conv2dLSTMCell, Conv2dGRUCell
+from _conv_recurrent_cells import Conv2dRNNCell, Conv2dLSTMCell, Conv2dGRUCell
 
 
 class Seq2Latent(nn.Module):
