@@ -1,6 +1,9 @@
 # Code for the preprint: Pre-training artificial neural networks with spontaneous retinal activity improves motion prediction in natural scenes
 
-In this repository, we provide the code used to generate the results we present in our preprint.
+In this repository, we provide the code used to generate the results we present in our preprint:
+
+[May, Lilly, and Julijana Gjorgjieva. "Pre-training artificial neural networks with spontaneous retinal activity improves motion prediction in natural scenes." bioRxiv (2024): 2024-06.](https://www.biorxiv.org/content/10.1101/2024.06.15.599143v1).
+
 We provide scripts for generating the data, training the artificial neural networks (ANNs), and evaluating the performance and characteristics of the trained ANNs.
 
 ## Data generation
