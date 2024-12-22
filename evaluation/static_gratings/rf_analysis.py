@@ -11,6 +11,7 @@ import pickle
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 from model_response_to_static_gratings import generate_paths
 from RF_static_gratings.generate_static_gratings import static_gratings_params
@@ -66,98 +67,40 @@ def layer_label(layer_name):
 #--------------------------------------------------------------------------------------------------------------------
 # Plotting functions (Histograms)
 
-def plot_histograms_std_changes(dict_std_changes, layer_name):
-    # Determine the global range across all models for the specific layer
-    all_std = np.concatenate([dict_std_changes[model_name][layer_name] for model_name in dict_std_changes])
-    global_min = np.min(all_std)
-    global_max = np.max(all_std)
-
-    # Define bin edges based on the overall range
-    number_of_bins = 50
-    bin_edges = np.linspace(global_min, global_max, number_of_bins + 1)
-
-    fig = plt.figure(figsize=(5, 4))
-    ax = fig.add_subplot(111)
-
-    for model_name in dict_std_changes.keys():
-        std = dict_std_changes[model_name][layer_name]
-        c = model_color(model_name)
-        l = model_label(model_name)
-        ax.hist(std, density=True, bins=bin_edges, alpha=0.5, color=c, label=l)
-
-    if "convrecurrent" in layer_name:
-        ax.set_xlim(0, 0.5)
-    else:
-        ax.set_xlim(0, 1.2)
-    ax.set_xlabel('Standard deviation of the change in activity')
-    ax.set_ylabel('Density')
-    layer_l = layer_label(layer_name)
-    plt.title(f'{layer_l}')
-    plt.legend()
-    path_fig = os.path.join(f'std_changes_{layer_name}.png')
-    plt.savefig(path_fig)
-    plt.close()
-    return None
-
-def violin_plots_changes_in_activity(dict_changes, layer_name):
-    assert layer_name == "convrecurrent3"
-
-    fig = plt.figure(figsize=(5, 4))
-    ax = fig.add_subplot(111)
-
-    nrn_idx = 15
-    positions = []
-    labels = []
-    for i, model_name in enumerate(dict_changes.keys()):
+def plot_hist_all_changes_in_activity(dict_changes, layer_name):
+    """
+    Plot the distribution of changes in activity for all neurons and all gratings in a given layer,
+    with each model's distribution on a separate subplot arranged vertically.
+    """
+    std_dict = {'RD': None, 'RW': None, 'NI': None}
+    
+    plt.figure(figsize=(6, 4))
+    for model_name in dict_changes.keys():
         changes = dict_changes[model_name][layer_name] # Shape: (n_exps, n_neurons)
-        c = model_color(model_name)
-        e = model_edge_color(model_name)
-        l = model_label_2_lines(model_name)
-        changes_distribution_nrn = changes[:, nrn_idx]
-        pos = i*0.75 + 1  # Position for the current model's violin plot
-        positions.append(pos)
-        labels.append(l)
-        parts = ax.violinplot(changes_distribution_nrn, showmeans=True, showmedians=False, showextrema=True,
-                              vert=True, widths=0.5, positions=[pos], points=60, bw_method=0.5)
-        for pc in parts['bodies']:
-            pc.set_facecolor(c)
-            pc.set_edgecolor(e)
-            pc.set_alpha(0.5)
+        changes = changes.flatten()
+        c = model_color(model_name)  # You should define this function to map model names to colors
+        l = model_label_2_lines(model_name)  # Define this to get labels possibly breaking into two lines
 
-        if 'cbars' in parts:
-            parts['cbars'].set_color(e)
-        if 'cmeans' in parts: # Customize the mean line color
-            parts['cmeans'].set_color(e)  # Set the color of the mean line
-        if 'cmins' in parts: # Customize the extrema lines color
-            parts['cmins'].set_color(e)  # Set the color of the minimum line
-        if 'cmaxes' in parts:
-            parts['cmaxes'].set_color(e)  # Set the color of the maximum line
+        sns.kdeplot(changes, color=c, label=l, fill=True)
+        std = np.std(changes)
+        std_dict[model_name] = std
+    
+    plt.legend(loc='upper right')
+    plt.ylabel('Kernel Density Estimate')
+    plt.xlabel('Changes in Activity')  # Only set x-label on the last subplot
+    plt.title(f'{layer_label(layer_name)}')
 
-        # Calculate the mean and standard deviation
-        mean_val = np.mean(changes_distribution_nrn)
-        std_dev = np.std(changes_distribution_nrn)
-
-        # Annotate the standard deviation with an arrow around the mean
-        ax.annotate('', xy=(pos, mean_val + std_dev), xytext=(pos, mean_val),
-                    arrowprops=dict(facecolor='black', shrink=0.05, width=1, headwidth=5))
-        ax.annotate('', xy=(pos, mean_val - std_dev), xytext=(pos, mean_val),
-                    arrowprops=dict(facecolor='black', shrink=0.05, width=1, headwidth=5))
-
-    ax.set_xticks(positions)
-    ax.set_xticklabels(labels)
-    ax.set_ylabel('Change in activity across gratings')
-    ax.set_title(f'Change in activity distributions for one randomly sampled nrn in {layer_label(layer_name)}')
-    path_fig = os.path.join(f'violin_plot_{layer_name}.png')
-    fig.subplots_adjust(bottom=0.2)
-    plt.savefig(path_fig)
+    path_fig = os.path.join(f'all_changes_in_activity_{layer_name}.pdf')
+    plt.savefig(path_fig, bbox_inches='tight')
     plt.close()
-    return None
+    
+    return std_dict
 
 
 #--------------------------------------------------------------------------------------------------------------------
 # Plotting functions (Comparisons of distributions across training regimes)
 
-def plot_means(m):
+def plot_std(std_dict):
     # Input: dictinary with model names as keys and dictionaries of layer names and empirical means as values
     fig = plt.figure(figsize=(5, 4))
     ax = fig.add_subplot(111)
@@ -165,57 +108,45 @@ def plot_means(m):
     # Keep track of labels to prevent duplicates in the legend
     handled_labels = set()
 
-    for model_name, layers in m.items():
+    reorganised_dict = {'RD': [], 'RW': [], 'NI': []}
+    layer_names = ['convrecurrent1', 'convrecurrent2', 'convrecurrent3', 'conv_output']
+    for i, (layer_name, layer_stds) in enumerate(std_dict.items()):
+        layer_names[i] = layer_label(layer_name)
+        for model_name, std in layer_stds.items():
+            reorganised_dict[model_name].append(std)
+            
+    for model_name, std_list in reorganised_dict.items():        
         # Get color and label for each model
         color = model_color(model_name)
         label = model_label(model_name)
-
-        # Prepare data for plotting
-        layer_data_m = [layers.get(layer, 0) for layer in layers.keys()]  # Use 0 for missing layers
-        layer_names = [layer_label(layer) for layer in layers.keys()]
-
+            
         # Plotting each model's line with dots
         if label not in handled_labels:
-            ax.plot(layer_names, layer_data_m, marker='o', linestyle='-', color=color, label=label)
+            ax.plot(layer_names, std_list, marker='o', linestyle='-', color=color, label=label)
             handled_labels.add(label)
         else:
-            ax.plot(layer_names, layer_data_m, marker='o', linestyle='-', color=color)
+            ax.plot(layer_name, std, marker='o', linestyle='-', color=color)
 
-    ax.set_ylabel('Empirical mean')
+    ax.set_ylabel('Standard deviation')
     ax.set_ylim(0, None)
     plt.xticks()
     plt.legend()
     plt.grid(True)
 
     # Save the figure
-    path_fig = os.path.join('means_std_changes_distribution.png')
-    plt.savefig(path_fig)
+    path_fig = os.path.join('std_changes_distribution.pdf')
+    plt.savefig(path_fig, bbox_inches='tight')
     plt.close()
     return None
 
 
 #--------------------------------------------------------------------------------------------------------------------
 
-
-def std_change_in_activity_distributions_all_models():
-    """
-    Generate panels C, D, E from Figure 6.
-    """
+def plot():
     model_names = ["NI", "RW", "RD"]
-    np.random.seed(37)
-    nrn_idx = np.random.randint(0, 1000, 32)
     changes_to_plot = {'RD': {'convrecurrent1': None, 'convrecurrent2': None, 'convrecurrent3': None, 'conv_output': None},
                     'RW': {'convrecurrent1': None, 'convrecurrent2': None, 'convrecurrent3': None, 'conv_output': None},
                     'NI': {'convrecurrent1': None, 'convrecurrent2': None, 'convrecurrent3': None, 'conv_output': None}}
-    std_changes = {'RD': {'convrecurrent1': None, 'convrecurrent2': None, 'convrecurrent3': None, 'conv_output': None},
-                    'RW': {'convrecurrent1': None, 'convrecurrent2': None, 'convrecurrent3': None, 'conv_output': None},
-                    'NI': {'convrecurrent1': None, 'convrecurrent2': None, 'convrecurrent3': None, 'conv_output': None}}
-    mean_std_distribution = {'RW': {'convrecurrent1': None, 'convrecurrent2': None, 'convrecurrent3': None, 'conv_output': None},
-                    'NI': {'convrecurrent1': None, 'convrecurrent2': None, 'convrecurrent3': None, 'conv_output': None},
-                    'RD': {'convrecurrent1': None, 'convrecurrent2': None, 'convrecurrent3': None, 'conv_output': None}}
-    max_dist_to_mean = {'RW': {'convrecurrent1': None, 'convrecurrent2': None, 'convrecurrent3': None, 'conv_output': None},
-                    'NI': {'convrecurrent1': None, 'convrecurrent2': None, 'convrecurrent3': None, 'conv_output': None},
-                    'RD': {'convrecurrent1': None, 'convrecurrent2': None, 'convrecurrent3': None, 'conv_output': None}}
 
     for model_name in model_names:
         _, _, path_responses = generate_paths(model_name)
@@ -233,22 +164,13 @@ def std_change_in_activity_distributions_all_models():
                     n_exps, n_nrn = changes_layer.shape[0], changes_layer.shape[1]*changes_layer.shape[2]
 
                 changes_layer = changes_layer.reshape(n_exps, -1)
-                changes_to_plot[model_name][layer_name] = changes_layer[:, nrn_idx]
-                std_change_per_nrn = changes_layer.std(axis=0)
+                changes_to_plot[model_name][layer_name] = changes_layer
 
-                std_changes[model_name][layer_name] = std_change_per_nrn
-                mean_std_distribution[model_name][layer_name] = std_change_per_nrn.mean()
-
-                avg_change_per_nrn = changes_layer.mean(axis=0)
-                distance_to_mean = np.abs(changes_layer - avg_change_per_nrn)
-                m = distance_to_mean.max(axis=0)
-                max_dist_to_mean[model_name][layer_name] = m.max()
-
-    violin_plots_changes_in_activity(changes_to_plot, "convrecurrent3")
-    plot_means(mean_std_distribution)
+    
+    std_dict = {'convrecurrent1': None, 'convrecurrent2': None, 'convrecurrent3': None, 'conv_output': None}
     for layer_name in ["convrecurrent1", "convrecurrent2", "convrecurrent3", "conv_output"]:
-        plot_histograms_std_changes(std_changes, layer_name)
-
+        std_dict[layer_name] = plot_hist_all_changes_in_activity(changes_to_plot, layer_name)
+    plot_std(std_dict)
     return None
 
 
@@ -257,5 +179,4 @@ def std_change_in_activity_distributions_all_models():
 
 
 if __name__ == '__main__':
-
-    std_change_in_activity_distributions_all_models()
+    plot()
