@@ -60,13 +60,11 @@ def read_measurements(current_model_dir,
             raise ValueError('Validation and training data have different lengths')
 
     if dataset == 'train':
-        mean_mse = mean_mse_train
-        sd_mse = sd_mse_train
+        return mean_mse_train, sd_mse_train
     elif dataset == 'validation':
-        mean_mse = mean_mse_vali
-        sd_mse = sd_mse_vali
-
-    return mean_mse, sd_mse
+        return mean_mse_vali, sd_mse_vali
+    else:
+        raise ValueError('Invalid dataset')
 
 
 # parent_directory is the directory where all Output directories are located
@@ -161,7 +159,7 @@ def plot_mse_with_break(parent_dir,
     plt.legend(handletextpad=1, labelspacing=1)
     plt.tight_layout()
     plt.subplots_adjust(wspace=0.05)
-    plt.savefig(f'{save_path}/MSE_{measurement}_{cell_type}_{dataset}_model_names.pdf', bbox_inches='tight')
+    plt.savefig(f'{save_path}/MSE_{measurement}_{cell_type}_{dataset}_{model_dirs[-1]}.pdf', bbox_inches='tight')
     plt.show()
 
 
@@ -197,10 +195,7 @@ def plot_mse_without_break(parent_dir,
             for skip_label, skip_epochs in skip_epoch:
                 if skip_label == label:
                     start += skip_epochs
-                    #end += skip_epochs
-        #if skip_epoch is not False and skip_epoch[0] == label:
-         #   start += skip_epoch[1]
-            # remove last element from cropped_mean_mse
+                    # remove last element from cropped_mean_mse
                     cropped_mean_mse = cropped_mean_mse[:(-1 * skip_epochs)]
                     cropped_sd_mse = cropped_sd_mse[:(-1 * skip_epochs)]
 

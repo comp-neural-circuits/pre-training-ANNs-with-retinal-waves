@@ -1,10 +1,8 @@
-import act_max_util_V1 as amu
+import act_max_util as amu
 import torch
-#import matplotlib.pyplot as plt
 import numpy as np
-#import seaborn as sns
 import os
-from Compound_models_V3 import NextFramePredictor
+from model._next_frame_predictor import NextFramePredictor
 import argparse
 
 # add command line argument model path
